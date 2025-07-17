@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Manager - ASACAM</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="particles-js"></div>
+    
+    <nav>
+        <div class="logo">ASACAM</div>
+    </nav>
+
+    <div class="container">
+        <h1>Asacam Manager</h1>
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                            <button onclick="this.parentElement.style.display='none'">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Live Search Bar -->
+        <div class="search-section">
+            <h2>Search Cameras</h2>
+            <div class="search-form">
+                <input 
+                    type="text" 
+                    id="liveSearch"
+                    placeholder="Search cameras by name or link..." 
+                    value="{{ search_query or '' }}"
+                    class="search-input"
+                    autocomplete="off"
+                >
+                <div class="search-status" id="searchStatus"></div>
+            </div>
+        </div>
+
+        <!-- Cameras List -->
+        <div class="cameras-section">
+            <h2 id="camerasTitle">
+                All Cameras
+                <span class="count" id="camerasCount">({{ cameras|length }})</span>
+            </h2>
+            
+            <div id="camerasContainer">
+                {% if cameras %}
+                    <div class="cameras-grid" id="camerasGrid">
+                        {% for camera in cameras %}
+                            <div class="camera-card" data-id="{{ camera.id }}">
+                                <div class="camera-info">
+                                    <h3>{{ camera.name }}</h3>
+                                    <p>
+                                        <a href="{{ camera.link }}" target="_blank" rel="noopener noreferrer">
+                                            {{ camera.link }}
+                                        </a>
+                                    </p>
+                                    <small>Added: {{ camera.created_at }}</small>
+                                </div>
+                                <div class="camera-actions">
+                                    <button 
+                                        class="btn secondary"
+                                        data-camera-id="{{ camera.id }}"
+                                        onclick="editCamera(this)"
+                                    >
+                                        Edit
+                                    </button>
+                                    <form 
+                                        method="POST" 
+                                        action="{{ url_for('delete_camera', camera_id=camera.id) }}" 
+                                        onsubmit="return confirm('Are you sure you want to delete {{ camera.name }}?')"
+                                        style="display: inline;"
+                                    >
+                                        <button type="submit" class="btn danger">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-cameras" id="noCameras">
+                        <p>No cameras added yet. Add your first camera above!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+                <!-- Add Camera Form -->
+        <div class="add-section">
+            <h2>Add New Camera</h2>
+            <form method="POST" action="{{ url_for('add_camera') }}" class="camera-form">
+                <div class="form-group">
+                    <label for="name">Camera Name</label>
+                    <input 
+                        type="text" 
+                        id="name" 
+                        name="name" 
+                        required 
+                        placeholder="Living Room Camera"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="link">Camera Link</label>
+                    <input 
+                        type="url" 
+                        id="link" 
+                        name="link" 
+                        required 
+                        placeholder="http://192.168.1.100:8080/stream"
+                    >
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn primary">Add Camera</button>
+                </div>
+            </form>
+        </div>
+        
+    </div>
+
+    <!-- Edit Camera Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Camera</h2>
+                <button onclick="closeModal()" class="close">&times;</button>
+            </div>
+            <form id="editForm" method="POST" class="camera-form">
+                <div class="form-group">
+                    <label for="editName">Camera Name</label>
+                    <input type="text" id="editName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="editLink">Camera Link</label>
+                    <input type="url" id="editLink" name="link" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn primary">Update Camera</button>
+                    <button type="button" onclick="closeModal()" class="btn secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Particles.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+        // Particles.js initialization
+        particlesJS.load('particles-js', '{{ url_for("static", filename="particles.json") }}', function() {
+            console.log('particles.js loaded');
+        });
+        
+        // Fallback if particles.json fails to load
+        setTimeout(function() {
+            if (!window.pJSDom || window.pJSDom.length === 0) {
+                particlesJS('particles-js', {
+                    "particles": {
+                        "number": {"value": 80, "density": {"enable": true, "value_area": 800}},
+                        "color": {"value": "#fff"},
+                        "shape": {"type": "circle"},
+                        "opacity": {"value": 0.5, "random": false},
+                        "size": {"value": 2, "random": true},
+                        "line_linked": {"enable": true, "distance": 150, "color": "#fff", "opacity": 0.2, "width": 1},
+                        "move": {"enable": true, "speed": 1.2, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false}
+                    },
+                    "interactivity": {
+                        "detect_on": "canvas",
+                        "events": {"onhover": {"enable": true, "mode": "repulse"}, "onclick": {"enable": true, "mode": "push"}, "resize": true},
+                        "modes": {"repulse": {"distance": 100, "duration": 0.4}, "push": {"particles_nb": 4}}
+                    },
+                    "retina_detect": true
+                });
+            }
+        }, 1000);
+
+        // Live Search Functionality
+        let searchTimeout;
+        const searchInput = document.getElementById('liveSearch');
+        const searchStatus = document.getElementById('searchStatus');
+        const camerasContainer = document.getElementById('camerasContainer');
+        const camerasTitle = document.getElementById('camerasTitle');
+        const camerasCount = document.getElementById('camerasCount');
+
+        // Debounced search function
+        function performSearch(query) {
+            // Show loading status
+            searchStatus.textContent = 'Searching...';
+            searchStatus.style.color = '#888';
+
+            fetch(`/api/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateCamerasList(data.cameras, data.query, data.count);
+                    
+                    // Update status
+                    if (data.query) {
+                        searchStatus.textContent = `Found ${data.count} result(s)`;
+                        searchStatus.style.color = data.count > 0 ? '#22c55e' : '#ef4444';
+                    } else {
+                        searchStatus.textContent = '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    searchStatus.textContent = 'Search failed';
+                    searchStatus.style.color = '#ef4444';
+                });
+        }
+
+        // Update the cameras list display
+        function updateCamerasList(cameras, query, count) {
+            // Update title
+            if (query) {
+                camerasTitle.innerHTML = `Search Results for "${query}" <span class="count">(${count})</span>`;
+            } else {
+                camerasTitle.innerHTML = `All Cameras <span class="count">(${count})</span>`;
+            }
+
+            // Clear current content
+            camerasContainer.innerHTML = '';
+
+            if (cameras.length > 0) {
+                // Create cameras grid
+                const grid = document.createElement('div');
+                grid.className = 'cameras-grid';
+                grid.id = 'camerasGrid';
+
+                cameras.forEach(camera => {
+                    const card = document.createElement('div');
+                    card.className = 'camera-card';
+                    card.setAttribute('data-id', camera.id);
+                    
+                    card.innerHTML = `
+                        <div class="camera-info">
+                            <h3>${escapeHtml(camera.name)}</h3>
+                            <p>
+                                <a href="${escapeHtml(camera.link)}" target="_blank" rel="noopener noreferrer">
+                                    ${escapeHtml(camera.link)}
+                                </a>
+                            </p>
+                            <small>Added: ${camera.created_at}</small>
+                        </div>
+                        <div class="camera-actions">
+                            <button 
+                                class="btn secondary"
+                                data-camera-id="${camera.id}"
+                                onclick="editCamera(this)"
+                            >
+                                Edit
+                            </button>
+                            <form 
+                                method="POST" 
+                                action="/delete/${camera.id}" 
+                                onsubmit="return confirm('Are you sure you want to delete ${escapeHtml(camera.name)}?')"
+                                style="display: inline;"
+                            >
+                                <button type="submit" class="btn danger">Delete</button>
+                            </form>
+                        </div>
+                    `;
+                    
+                    grid.appendChild(card);
+                });
+
+                camerasContainer.appendChild(grid);
+            } else {
+                // Show no cameras message
+                const noCameras = document.createElement('div');
+                noCameras.className = 'no-cameras';
+                noCameras.id = 'noCameras';
+                
+                if (query) {
+                    noCameras.innerHTML = `
+                        <p>No cameras found matching your search.</p>
+                        <button onclick="clearSearch()" class="btn primary">View All Cameras</button>
+                    `;
+                } else {
+                    noCameras.innerHTML = '<p>No cameras added yet. Add your first camera above!</p>';
+                }
+                
+                camerasContainer.appendChild(noCameras);
+            }
+        }
+
+        // Clear search function
+        function clearSearch() {
+            searchInput.value = '';
+            searchInput.focus();
+            performSearch('');
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Live search event listener
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            // Clear previous timeout
+            clearTimeout(searchTimeout);
+            
+            // Set new timeout for debouncing (300ms delay)
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 300);
+        });
+
+        // Edit camera functionality
+        function editCamera(button) {
+            const cameraId = button.getAttribute('data-camera-id');
+            
+            fetch(`/get_camera/${cameraId}`)
+                .then(response => response.json())
+                .then(camera => {
+                    document.getElementById('editName').value = camera.name;
+                    document.getElementById('editLink').value = camera.link;
+                    document.getElementById('editForm').action = `/update/${cameraId}`;
+                    document.getElementById('editModal').style.display = 'block';
+                })
+                .catch(error => {
+                    alert('Error loading camera data');
+                    console.error('Error:', error);
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Focus search input on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            searchInput.focus();
+        });
+    </script>
+</body>
+</html>
